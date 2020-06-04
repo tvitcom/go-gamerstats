@@ -1,0 +1,2 @@
+# go-gamerstats
+Some testcase
