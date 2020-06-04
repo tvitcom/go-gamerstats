@@ -16,7 +16,6 @@ rsync -e "ssh -p $REMOTE_PORT" \
 	--exclude=".gitignore" \
 	--exclude="uploaded" \
 	--exclude=".env*"	\
-	--exclude="run.sh"	\
 	--exclude="logs/" \
 	--exclude=".git" \
 	-PLSluvr --del --no-perms --no-t \
