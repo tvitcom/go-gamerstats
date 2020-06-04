@@ -29,3 +29,11 @@ MongoDb.
 
 [Пользователи] (https://drive.google.com/file/d/1tjubsoSwdzPK553ovvmMZs9qQwMjlKh1/view?usp=sharing)
 [Данные по играм] (https://drive.google.com/file/d/1N_6pG7hxMcTJtB2MGAZZGe6_ZRfS21Mr/view?usp=sharing)
+
+##Deploy
+- импортировать данные из папки data в mongodb
+- переименовать _env в .env
+- в .env указать параметры подключений БД и http
+- переименовать _deploy.conf в deploy.conf
+- в deploy.conf указать параметры сервера
+- выполнить команду ./deploy.sh
