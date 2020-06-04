@@ -5,7 +5,6 @@
 /data/bkp
 /deploy.conf*
 /.env*
-/API.md*
 old-*
 _old_*
 old_*
