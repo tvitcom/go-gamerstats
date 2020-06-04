@@ -1,0 +1,24 @@
+## secured files
+/data/*
+!/data/users-go.json
+!/data/games.json
+/data/bkp
+/deploy.conf*
+/.env*
+/API.md*
+old-*
+_old_*
+old_*
+*.swp
+*/*.swp*
+*/_old*
+
+## common files
+/123.go*
+.*
+!.gitignore
+*~
+/main*
+!/main.go
+/vendor/*
+/favicon.ico
