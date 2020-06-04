@@ -2,11 +2,16 @@ package main
 
 import (
 	// "encoding/json"
-	"fmt"
+	"context"
+    "fmt"
+    "log"
+    // "go.mongodb.org/mongo-driver/bson"
+    "go.mongodb.org/mongo-driver/mongo"
+    "go.mongodb.org/mongo-driver/mongo/options"
 	"github.com/cnjack/throttle"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"my.localhost/funny/bitlabs/approot/storage"
+	// "my.localhost/funny/bitlabs/approot/storage"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -21,9 +26,20 @@ var (
 	APP_SSLENTRYPOINT string
 	API_USER          string
 	API_PASSWORD      string
+	DB_TYPE           string
+	DB_HOST           string
+	DB_PORT           string
+	DB_USER           string
+	DB_PASSWORD           string
 )
 
-type ()
+type (
+	User struct {
+	    Name string
+	    Age  int
+	    City string
+	}
+)
 
 func init() {
 	err := godotenv.Load()
@@ -38,11 +54,27 @@ func init() {
 	APP_SSLENTRYPOINT = os.Getenv("app_ssl_entrypoint")
 	API_USER = os.Getenv("api_user")
 	API_PASSWORD = os.Getenv("api_password")
-	STORAGE_DRV = os.Getenv("db_type")
-	STORAGE_DSN = os.Getenv("db_user") + ":" + os.Getenv("db_pass") + "@/" + os.Getenv("db_name")
+	DB_TYPE = os.Getenv("db_type")
+	DB_HOST = os.Getenv("db_host")
+	DB_PORT = os.Getenv("db_port")
+	DB_USER = os.Getenv("db_user")
+	DB_PASSWORD = os.Getenv("db_password")
 }
 
 func main() {
+	// Set client options
+	credential := options.Credential{
+		Username: DB_USER,
+		Password: DB_PASSWORD,
+	}
+	clientOpts := options.Client().ApplyURI(DB_TYPE+"://"+DB_HOST+":"+DB_PORT).SetAuth(credential)
+	client, err := mongo.Connect(context.TODO(), clientOpts)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_ = client
+	fmt.Println("Connected to MongoDB!")
+	
 	if gin.Mode() == gin.ReleaseMode {
 		gin.SetMode(gin.ReleaseMode)
 		gin.DisableConsoleColor()

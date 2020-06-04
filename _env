@@ -1,10 +1,11 @@
 app_fqdn = "example.com"
 app_entrypoint = 0.0.0.0:3000
 app_ssl_entrypoint = 0.0.0.0:3363
-api_user = api
+api_user = guest
 api_password = PasswordToYourApi
 db_type = mongodb
 db_host = localhost
+db_port = 27017
 db_name = yourapp
 db_user = yourapp
 db_pass = pass_to_yourapp
