@@ -5,6 +5,7 @@
 /data/bkp
 /deploy.conf*
 /.env*
+/go.sum*
 old-*
 _old_*
 old_*
