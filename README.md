@@ -37,6 +37,7 @@ MongoDb.
 
 ## Deploy
 - импортировать данные из папки data в mongodb
+- переименовать _go.mod в go.mod
 - переименовать _env в .env
 - в .env указать параметры подключений БД и http
 - переименовать _deploy.conf в deploy.conf

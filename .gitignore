@@ -6,11 +6,11 @@
 !/data/games.json
 /deploy.conf*
 /.env*
+/go.mod*
 /go.sum*
 old-*
 _old_*
 old_*
-*.swp
 */*.swp*
 */_old*
 
