@@ -4,7 +4,7 @@ import (
 	// "encoding/json"
 	"github.com/cnjack/throttle"
 	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/autotls"
+	// "github.com/gin-gonic/autotls"
 	"golang.org/x/crypto/acme/autocert"
 	"github.com/joho/godotenv"
 	// "context"
@@ -19,6 +19,7 @@ import (
 	"log"
 	"fmt"
 	"os"
+	"io"
 )
 
 var (
@@ -89,14 +90,29 @@ func main() {
 	// fmt.Println(databases)
 
 	if gin.Mode() == gin.ReleaseMode {
-		gin.SetMode(gin.ReleaseMode)
 		gin.DisableConsoleColor()
+		f, _ := os.Create("./logs/server.log")
+		gin.DefaultWriter = io.MultiWriter(f)
 		// Sett log format:
 		fmt.Println("PRODUCTION MODE: Enabled (logs, console, debug messages)")
 	} else {
 		fmt.Println("PRODUCTION MODE: Disabled: api_user,api_password:", API_USER, API_PASSWORD)
 	}
 	router := gin.New()
+	if gin.Mode() == gin.ReleaseMode {
+		router.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+			//custom format for logging:
+			return fmt.Sprintf("%s - [%s] %s \"%s\" %d \"%s\" %s\n",
+				param.TimeStamp.Format("2006-01-02 15:04:05"),
+				param.ClientIP,
+				param.Method,
+				param.Path,
+				param.StatusCode,
+				param.Request.UserAgent(),
+				param.ErrorMessage,
+			)
+		}))
+	}
 	// Define common middlewares
 	router.Use(gin.Recovery())
 	router.LoadHTMLGlob("templates/*")
@@ -172,14 +188,21 @@ func main() {
 				log.Fatalf("ListenAndServe error: %v", err)
 			}
 		}()
-
-		tlsManager := autocert.Manager{
-			Prompt:     autocert.AcceptTOS,
-			HostPolicy: autocert.HostWhitelist(APP_FQDN, "www"+APP_FQDN),
-			Cache:      autocert.DirCache(CERTS_CACHE),
+		tlsManager := &autocert.Manager{
+		    Cache:      autocert.DirCache(CERTS_CACHE),
+		    Prompt:     autocert.AcceptTOS,
+		    HostPolicy: autocert.HostWhitelist(APP_FQDN, "www"+APP_FQDN),
 		}
-
-		log.Fatal(autotls.RunWithManager(router, &tlsManager))
+		s := &http.Server{
+		    Addr:      ":3363",
+		    TLSConfig: tlsManager.TLSConfig(),
+    		Handler:        router,
+			ReadTimeout:    60 * time.Second,
+			WriteTimeout:   15 * time.Second,
+			IdleTimeout:    60 * time.Second,
+			MaxHeaderBytes: 32 << 20,
+		}
+		s.ListenAndServeTLS("", "")
 	} else {
 		s.ListenAndServe()
 	}

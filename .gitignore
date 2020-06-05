@@ -5,6 +5,7 @@
 /data/*
 !/data/users-go.json
 !/data/games.json
+/logs/*
 /deploy.conf*
 /.env*
 /go.mod*
