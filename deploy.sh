@@ -14,9 +14,12 @@
 
 rsync -e "ssh -p $REMOTE_PORT" \
 	--exclude=".gitignore" \
+	--exclude="certs-cache" \
 	--exclude="uploaded" \
 	--exclude=".env*"	\
 	--exclude="logs/" \
+	--exclude="go.sum" \
+	--exclude="go.mod" \
 	--exclude=".git" \
 	-PLSluvr --del --no-perms --no-t \
 	$LOCAL_DIR $REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR

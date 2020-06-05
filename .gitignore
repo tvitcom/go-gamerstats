@@ -1,4 +1,5 @@
 ## secured files
+/certs-cache/*
 /public/*
 !/public/index.html
 /data/*

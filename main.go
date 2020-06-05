@@ -2,23 +2,27 @@ package main
 
 import (
 	// "encoding/json"
-	"context"
-    "fmt"
-    "log"
-    // "go.mongodb.org/mongo-driver/bson"
-    "go.mongodb.org/mongo-driver/mongo"
-    "go.mongodb.org/mongo-driver/mongo/options"
 	"github.com/cnjack/throttle"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/autotls"
+	"golang.org/x/crypto/acme/autocert"
 	"github.com/joho/godotenv"
+	// "context"
+	// "go.mongodb.org/mongo-driver/bson"
+	// "go.mongodb.org/mongo-driver/mongo"
+	// "go.mongodb.org/mongo-driver/mongo/options"
+	// "go.mongodb.org/mongo-driver/mongo/readpref"
 	// "my.localhost/funny/bitlabs/approot/storage"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"time"
+	"log"
+	"fmt"
+	"os"
 )
 
 var (
+	CERTS_CACHE	       string
 	STORAGE_DRV       string
 	STORAGE_DSN       string
 	APP_ENTRYPOINT    string
@@ -30,15 +34,11 @@ var (
 	DB_HOST           string
 	DB_PORT           string
 	DB_USER           string
-	DB_PASSWORD           string
+	DB_PASSWORD       string
+	MONGODB_DSN       string
 )
 
 type (
-	User struct {
-	    Name string
-	    Age  int
-	    City string
-	}
 )
 
 func init() {
@@ -49,6 +49,7 @@ func init() {
 	}
 
 	gin.SetMode(os.Getenv("GIN_MODE"))
+	CERTS_CACHE = os.Getenv("certs_cache") // should be withoud finalize dot
 	APP_FQDN = os.Getenv("app_fqdn") // should be withoud finalize dot
 	APP_ENTRYPOINT = os.Getenv("app_entrypoint")
 	APP_SSLENTRYPOINT = os.Getenv("app_ssl_entrypoint")
@@ -59,22 +60,34 @@ func init() {
 	DB_PORT = os.Getenv("db_port")
 	DB_USER = os.Getenv("db_user")
 	DB_PASSWORD = os.Getenv("db_password")
+	MONGODB_DSN = DB_TYPE + "://" + DB_HOST + ":" + DB_PORT
 }
 
 func main() {
 	// Set client options
-	credential := options.Credential{
-		Username: DB_USER,
-		Password: DB_PASSWORD,
-	}
-	clientOpts := options.Client().ApplyURI(DB_TYPE+"://"+DB_HOST+":"+DB_PORT).SetAuth(credential)
-	client, err := mongo.Connect(context.TODO(), clientOpts)
-	if err != nil {
-		log.Fatal(err)
-	}
-	_ = client
-	fmt.Println("Connected to MongoDB!")
-	
+	// credential := options.Credential{
+	// 	Username: DB_USER,
+	// 	Password: DB_PASSWORD,
+	// }
+	// clientOpts := options.Client().ApplyURI(DB_TYPE + "://" + DB_HOST + ":" + DB_PORT).SetAuth(credential)
+	//    ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	// client, err := mongo.Connect(ctx, clientOpts)
+
+	// cl := storage.NewClient(MONGODB_DSN)
+	// storage.ShowDbs(cl)
+	// storage.GetCollection(cl, "bitlabs", "users")
+
+	// ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	// cl, err := mongo.Connect(ctx, options.Client().ApplyURI(MONGODB_DSN))
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// databases, err := cl.ListDatabaseNames(ctx, bson.M{})
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// fmt.Println(databases)
+
 	if gin.Mode() == gin.ReleaseMode {
 		gin.SetMode(gin.ReleaseMode)
 		gin.DisableConsoleColor()
@@ -99,6 +112,7 @@ func main() {
 
 	// Static assets
 	router.StaticFile("/favicon.ico", "./assets/img/favicon-32x32.png")
+	router.Static("/public", "./public")
 
 	router.GET("/", func(c *gin.Context) {
 		c.String(200, `Please use our api by link: /api_v1`)
@@ -151,5 +165,26 @@ func main() {
 	})
 
 	// Listen and serve:
-	s.ListenAndServe()
+	// Listen and serve:
+	if gin.Mode() == gin.ReleaseMode {
+		go func() {
+			if err := http.ListenAndServe(APP_ENTRYPOINT, http.HandlerFunc(redirectHTTPS)); err != nil {
+				log.Fatalf("ListenAndServe error: %v", err)
+			}
+		}()
+
+		tlsManager := autocert.Manager{
+			Prompt:     autocert.AcceptTOS,
+			HostPolicy: autocert.HostWhitelist(APP_FQDN, "www"+APP_FQDN),
+			Cache:      autocert.DirCache(CERTS_CACHE),
+		}
+
+		log.Fatal(autotls.RunWithManager(router, &tlsManager))
+	} else {
+		s.ListenAndServe()
+	}
+}
+
+func redirectHTTPS(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "https://"+APP_FQDN+r.RequestURI, http.StatusMovedPermanently)
 }

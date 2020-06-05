@@ -1,3 +1,4 @@
+certs_cache = "./certs-cache"
 app_fqdn = "example.com"
 app_entrypoint = 0.0.0.0:3000
 app_ssl_entrypoint = 0.0.0.0:3363
