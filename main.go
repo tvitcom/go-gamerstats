@@ -7,10 +7,10 @@ import (
 	// "github.com/gin-gonic/autotls"
 	"golang.org/x/crypto/acme/autocert"
 	"github.com/joho/godotenv"
-	// "context"
-	// "go.mongodb.org/mongo-driver/bson"
-	// "go.mongodb.org/mongo-driver/mongo"
-	// "go.mongodb.org/mongo-driver/mongo/options"
+	"context"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	// "go.mongodb.org/mongo-driver/mongo/readpref"
 	// "my.localhost/funny/bitlabs/approot/storage"
 	"io/ioutil"
@@ -40,6 +40,15 @@ var (
 )
 
 type (
+	User struct {
+		// _id	string
+	    Email string
+	    Last_name string
+	    Country string
+	    City string
+	    Gender string
+	    Birth_date string
+	}
 )
 
 func init() {
@@ -65,29 +74,28 @@ func init() {
 }
 
 func main() {
-	// Set client options
-	// credential := options.Credential{
-	// 	Username: DB_USER,
-	// 	Password: DB_PASSWORD,
-	// }
-	// clientOpts := options.Client().ApplyURI(DB_TYPE + "://" + DB_HOST + ":" + DB_PORT).SetAuth(credential)
-	//    ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	// client, err := mongo.Connect(ctx, clientOpts)
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	cli, err := mongo.Connect(ctx, options.Client().ApplyURI(MONGODB_DSN))
+	if err != nil {
+		log.Fatal(err)
+	}
+	// Check the connection
+	err = cli.Ping(context.TODO(), nil)
 
-	// cl := storage.NewClient(MONGODB_DSN)
-	// storage.ShowDbs(cl)
-	// storage.GetCollection(cl, "bitlabs", "users")
+	if err != nil {
+	    log.Fatal(err)
+	}
+	databases, err := cli.ListDatabaseNames(ctx, bson.M{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(databases)
 
-	// ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	// cl, err := mongo.Connect(ctx, options.Client().ApplyURI(MONGODB_DSN))
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// databases, err := cl.ListDatabaseNames(ctx, bson.M{})
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// fmt.Println(databases)
+
+
+
+
+
 
 	if gin.Mode() == gin.ReleaseMode {
 		gin.DisableConsoleColor()
