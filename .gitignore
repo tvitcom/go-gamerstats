@@ -1,8 +1,9 @@
 ## secured files
+/public/*
+!/public/index.html
 /data/*
 !/data/users-go.json
 !/data/games.json
-/data/bkp
 /deploy.conf*
 /.env*
 /go.sum*
