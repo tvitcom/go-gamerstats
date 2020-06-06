@@ -4,7 +4,6 @@ import (
 	// "encoding/json"
 	"github.com/cnjack/throttle"
 	"github.com/gin-gonic/gin"
-	// "github.com/gin-gonic/autotls"
 	"golang.org/x/crypto/acme/autocert"
 	"github.com/joho/godotenv"
 	"context"
@@ -12,7 +11,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	// "go.mongodb.org/mongo-driver/mongo/readpref"
-	// "my.localhost/funny/bitlabs/approot/storage"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -34,6 +32,7 @@ var (
 	DB_TYPE           string
 	DB_HOST           string
 	DB_PORT           string
+	DB_NAME           string
 	DB_USER           string
 	DB_PASSWORD       string
 	MONGODB_DSN       string
@@ -68,6 +67,7 @@ func init() {
 	DB_TYPE = os.Getenv("db_type")
 	DB_HOST = os.Getenv("db_host")
 	DB_PORT = os.Getenv("db_port")
+	DB_NAME = os.Getenv("db_name")
 	DB_USER = os.Getenv("db_user")
 	DB_PASSWORD = os.Getenv("db_password")
 	MONGODB_DSN = DB_TYPE + "://" + DB_HOST + ":" + DB_PORT
@@ -91,7 +91,47 @@ func main() {
 	}
 	fmt.Println(databases)
 
+	collection := cli.Database(DB_NAME).Collection("users")
+	
+	// select one record
+	var result User
+	filter := bson.D{{"email","Valerie_Gavin9167@nimogy.biz"}}
+	err = collection.FindOne(context.TODO(), filter).Decode(&result)
+	if err != nil {
+	    log.Fatal(err)
+	}
 
+	fmt.Printf("Found a single document: %+v\n", result)
+
+	//select many records
+	// Pass these options to the Find method
+	findOptions := options.Find()
+	findOptions.SetLimit(2)
+
+	// Here's an array in which you can store the decoded documents
+	var results []*User
+	// Passing bson.D{{}} as the filter matches all documents in the collection
+	cur, err := collection.Find(context.TODO(), bson.D{{}}, findOptions)
+	if err != nil {
+	    log.Fatal(err)
+	}
+	// Finding multiple documents returns a cursor
+	// Iterating through the cursor allows us to decode documents one at a time
+	for cur.Next(context.TODO()) {
+	    // create a value into which the single document can be decoded
+	    var elem User
+	    err := cur.Decode(&elem)
+	    if err != nil {
+	        log.Fatal(err)
+	    }
+	    results = append(results, &elem)
+	}
+	if err := cur.Err(); err != nil {
+	    log.Fatal(err)
+	}
+	// Close the cursor once finished
+	cur.Close(context.TODO())
+	fmt.Printf("Found multiple documents (array of pointers): %+v\n", results)
 
 
 
