@@ -2,26 +2,28 @@ package main
 
 import (
 	// "encoding/json"
+	"context"
 	"github.com/cnjack/throttle"
 	"github.com/gin-gonic/gin"
-	"golang.org/x/crypto/acme/autocert"
+	. "github.com/gobeam/mongo-go-pagination"
 	"github.com/joho/godotenv"
-	"context"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"golang.org/x/crypto/acme/autocert"
 	// "go.mongodb.org/mongo-driver/mongo/readpref"
-	"io/ioutil"
-	"net/http"
-	"time"
-	"log"
 	"fmt"
-	"os"
 	"io"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"os"
+	"time"
 )
 
 var (
-	CERTS_CACHE	       string
+	CERTS_CACHE       string
 	STORAGE_DRV       string
 	STORAGE_DSN       string
 	APP_ENTRYPOINT    string
@@ -40,13 +42,13 @@ var (
 
 type (
 	User struct {
-		// _id	string
-	    Email string
-	    Last_name string
-	    Country string
-	    City string
-	    Gender string
-	    Birth_date string
+		Id         primitive.ObjectID `json:"_id" bson:"_id"`
+		Email      string             `json:"email" bson:"email"`
+		Last_name  string             `json:"last_name" bson:"last_name"`
+		Country    string             `json:"country" bson:"country"`
+		City       string             `json:"city" bson:"city"`
+		Gender     string             `json:"gender" bson:"gender"`
+		Birth_date string             `json:"birth_data" bson:"birth_data"`
 	}
 )
 
@@ -59,7 +61,7 @@ func init() {
 
 	gin.SetMode(os.Getenv("GIN_MODE"))
 	CERTS_CACHE = os.Getenv("certs_cache") // should be withoud finalize dot
-	APP_FQDN = os.Getenv("app_fqdn") // should be withoud finalize dot
+	APP_FQDN = os.Getenv("app_fqdn")       // should be withoud finalize dot
 	APP_ENTRYPOINT = os.Getenv("app_entrypoint")
 	APP_SSLENTRYPOINT = os.Getenv("app_ssl_entrypoint")
 	API_USER = os.Getenv("api_user")
@@ -72,8 +74,7 @@ func init() {
 	DB_PASSWORD = os.Getenv("db_password")
 	MONGODB_DSN = DB_TYPE + "://" + DB_HOST + ":" + DB_PORT
 }
-
-func main() {
+func InitDB() (*mongo.Client, context.Context) {
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	cli, err := mongo.Connect(ctx, options.Client().ApplyURI(MONGODB_DSN))
 	if err != nil {
@@ -81,61 +82,102 @@ func main() {
 	}
 	// Check the connection
 	err = cli.Ping(context.TODO(), nil)
-
 	if err != nil {
-	    log.Fatal(err)
+		log.Fatal(err)
 	}
+	return cli, ctx
+}
+func main() {
+	cli, ctx := InitDB()
+	//List dbs
 	databases, err := cli.ListDatabaseNames(ctx, bson.M{})
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println(databases)
-
 	collection := cli.Database(DB_NAME).Collection("users")
-	
+
 	// select one record
 	var result User
-	filter := bson.D{{"email","Valerie_Gavin9167@nimogy.biz"}}
+	filter := bson.D{{"email", "Valerie_Gavin9167@nimogy.biz"}}
 	err = collection.FindOne(context.TODO(), filter).Decode(&result)
 	if err != nil {
-	    log.Fatal(err)
+		log.Fatal(err)
 	}
-
 	fmt.Printf("Found a single document: %+v\n", result)
 
-	//select many records
-	// Pass these options to the Find method
+	//multiple documents
 	findOptions := options.Find()
 	findOptions.SetLimit(2)
-
-	// Here's an array in which you can store the decoded documents
 	var results []*User
-	// Passing bson.D{{}} as the filter matches all documents in the collection
 	cur, err := collection.Find(context.TODO(), bson.D{{}}, findOptions)
 	if err != nil {
-	    log.Fatal(err)
+		log.Fatal(err)
 	}
-	// Finding multiple documents returns a cursor
-	// Iterating through the cursor allows us to decode documents one at a time
 	for cur.Next(context.TODO()) {
-	    // create a value into which the single document can be decoded
-	    var elem User
-	    err := cur.Decode(&elem)
-	    if err != nil {
-	        log.Fatal(err)
-	    }
-	    results = append(results, &elem)
+		var elem User
+		err := cur.Decode(&elem)
+		if err != nil {
+			log.Fatal(err)
+		}
+		results = append(results, &elem)
 	}
 	if err := cur.Err(); err != nil {
-	    log.Fatal(err)
+		log.Fatal(err)
 	}
-	// Close the cursor once finished
 	cur.Close(context.TODO())
 	fmt.Printf("Found multiple documents (array of pointers): %+v\n", results)
 
+	// print pagination data
+	var limit int64 = 10
+	var page int64 = 1
+	collections := cli.Database(DB_NAME).Collection("users")
+	match := bson.M{"$match": bson.M{"qty": bson.M{"$gt": 10}}}
+	projectQuery := bson.M{"$project": bson.M{"_id": 1, "qty": 1}}
+	// you can easily chain function and pass multiple query like here we are passing match
+	// query and projection query as params in Aggregate function you cannot use filter with Aggregate
+	// because you can pass filters directly through Aggregate param
+	aggPaginatedData, err := New(collections).Limit(limit).Page(page).Aggregate(match, projectQuery)
+	if err != nil {
+		panic(err)
+	}
+	var aggUserList []User
+	for _, raw := range aggPaginatedData.Data {
+		var user *User
+		if marshallErr := bson.Unmarshal(raw, &user); marshallErr == nil {
+			aggUserList = append(aggUserList, *user)
+		}
 
+	}
+	fmt.Printf("Aggregate User List: %+v\n", aggUserList)
+	fmt.Printf("Aggregate Pagination Data: %+v\n", aggPaginatedData.Data)
 
-
+	// // Example for Normal Find query
+	// filtr := bson.M{}
+	// cond := bson.D{
+	// 	{"country", "Kazakhstan"},
+	// 	// {"qty", 1},
+	// }
+	// // Querying paginated data
+	// // Sort and select are optional
+	// paginatedData, err := New(collections).Limit(limit).Page(page).Sort("birth_date", -1).Select(cond).Filter(filtr).Find()
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// // paginated data is in paginatedData.Data
+	// // pagination info can be accessed in  paginatedData.Pagination
+	// // if you want to marshal data to your defined struct
+	// var lists []User
+	// for _, raw := range paginatedData.Data {
+	// 	var user *User
+	// 	if marshallErr := bson.Unmarshal(raw, &user); marshallErr == nil {
+	// 		lists = append(lists, *user)
+	// 	}
+	// }
+	// // print ProductList
+	// fmt.Printf("Norm Find Data: %+v\n", lists)
+	// // print pagination data
+	// fmt.Printf("Normal find pagination info: %+v\n", paginatedData.Pagination)
 
 	if gin.Mode() == gin.ReleaseMode {
 		gin.DisableConsoleColor()
@@ -237,14 +279,14 @@ func main() {
 			}
 		}()
 		tlsManager := &autocert.Manager{
-		    Cache:      autocert.DirCache(CERTS_CACHE),
-		    Prompt:     autocert.AcceptTOS,
-		    HostPolicy: autocert.HostWhitelist(APP_FQDN, "www"+APP_FQDN),
+			Cache:      autocert.DirCache(CERTS_CACHE),
+			Prompt:     autocert.AcceptTOS,
+			HostPolicy: autocert.HostWhitelist(APP_FQDN, "www"+APP_FQDN),
 		}
 		s := &http.Server{
-		    Addr:      ":3363",
-		    TLSConfig: tlsManager.TLSConfig(),
-    		Handler:        router,
+			Addr:           ":3363",
+			TLSConfig:      tlsManager.TLSConfig(),
+			Handler:        router,
 			ReadTimeout:    60 * time.Second,
 			WriteTimeout:   15 * time.Second,
 			IdleTimeout:    60 * time.Second,

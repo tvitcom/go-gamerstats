@@ -36,10 +36,10 @@ MongoDb.
 - registered domain name
 
 ## Deploy
-- импортировать данные из папки data в mongodb
 - переименовать _go.mod в go.mod
 - переименовать _env в .env
 - в .env указать параметры подключений БД и http
+- импортировать данные в mongodb из папки data
 - переименовать _deploy.conf в deploy.conf
 - в deploy.conf указать параметры сервера
 - выполнить команду ./deploy.sh
