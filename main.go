@@ -5,7 +5,7 @@ import (
 	"context"
 	"github.com/cnjack/throttle"
 	"github.com/gin-gonic/gin"
-	. "github.com/gobeam/mongo-go-pagination"
+	monpagin "github.com/gobeam/mongo-go-pagination"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -132,52 +132,30 @@ func main() {
 	var limit int64 = 10
 	var page int64 = 1
 	collections := cli.Database(DB_NAME).Collection("users")
-	match := bson.M{"$match": bson.M{"qty": bson.M{"$gt": 10}}}
-	projectQuery := bson.M{"$project": bson.M{"_id": 1, "qty": 1}}
-	// you can easily chain function and pass multiple query like here we are passing match
-	// query and projection query as params in Aggregate function you cannot use filter with Aggregate
-	// because you can pass filters directly through Aggregate param
-	aggPaginatedData, err := New(collections).Limit(limit).Page(page).Aggregate(match, projectQuery)
+
+	filtr := bson.M{}
+	projection := bson.D{
+    		{"email", 1},
+    		{"lastname", 1},
+    		{"country", 1},
+    		{"city", 1},
+    	}
+	paginatedData, err := monpagin.New(collections).Limit(limit).Page(page).Select(projection).Filter(filtr).Sort("country" , 1).Find()
 	if err != nil {
 		panic(err)
 	}
-	var aggUserList []User
-	for _, raw := range aggPaginatedData.Data {
+	var lists []User
+	for _, raw := range paginatedData.Data {
 		var user *User
 		if marshallErr := bson.Unmarshal(raw, &user); marshallErr == nil {
-			aggUserList = append(aggUserList, *user)
+			lists = append(lists, *user)
 		}
-
 	}
-	fmt.Printf("Aggregate User List: %+v\n", aggUserList)
-	fmt.Printf("Aggregate Pagination Data: %+v\n", aggPaginatedData.Data)
+	fmt.Printf("Norm Find Data: %+v\n", lists)
+	fmt.Printf("Normal find pagination info: %+v\n", paginatedData.Pagination)
 
-	// // Example for Normal Find query
-	// filtr := bson.M{}
-	// cond := bson.D{
-	// 	{"country", "Kazakhstan"},
-	// 	// {"qty", 1},
-	// }
-	// // Querying paginated data
-	// // Sort and select are optional
-	// paginatedData, err := New(collections).Limit(limit).Page(page).Sort("birth_date", -1).Select(cond).Filter(filtr).Find()
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// // paginated data is in paginatedData.Data
-	// // pagination info can be accessed in  paginatedData.Pagination
-	// // if you want to marshal data to your defined struct
-	// var lists []User
-	// for _, raw := range paginatedData.Data {
-	// 	var user *User
-	// 	if marshallErr := bson.Unmarshal(raw, &user); marshallErr == nil {
-	// 		lists = append(lists, *user)
-	// 	}
-	// }
-	// // print ProductList
-	// fmt.Printf("Norm Find Data: %+v\n", lists)
-	// // print pagination data
-	// fmt.Printf("Normal find pagination info: %+v\n", paginatedData.Pagination)
+
+
 
 	if gin.Mode() == gin.ReleaseMode {
 		gin.DisableConsoleColor()
