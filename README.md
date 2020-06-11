@@ -45,4 +45,11 @@ MongoDb.
 - выполнить команду ./deploy.sh
 
 ## Test
+Демо: http://yourdomain/api_v1/
+Login:      guest
+Password:   guest0k!
 
+GET /api_v1/user/listing?pagenum=2
+GET /api_v1/user/profile/123
+GET /api_v1/user/stats/123?sort=by_game&pagenum=2
+GET /api_v1/user/stats/123?&sort=by_day&pagenum=1

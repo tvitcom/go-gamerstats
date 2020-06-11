@@ -19,6 +19,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -41,7 +42,8 @@ var (
 )
 
 type (
-	User struct {
+	AnyInterface interface{}
+	User         struct {
 		Id         primitive.ObjectID `json:"_id" bson:"_id"`
 		Email      string             `json:"email" bson:"email"`
 		Last_name  string             `json:"last_name" bson:"last_name"`
@@ -49,6 +51,16 @@ type (
 		City       string             `json:"city" bson:"city"`
 		Gender     string             `json:"gender" bson:"gender"`
 		Birth_date string             `json:"birth_data" bson:"birth_data"`
+	}
+	// Current info about state of compute process
+	// Pagination part
+	// Return data of any values
+	//faces errors
+	DataOutput struct {
+		context    AnyInterface
+		pagination AnyInterface
+		data       AnyInterface
+		errors     AnyInterface
 	}
 )
 
@@ -88,74 +100,7 @@ func InitDB() (*mongo.Client, context.Context) {
 	return cli, ctx
 }
 func main() {
-	cli, ctx := InitDB()
-	//List dbs
-	databases, err := cli.ListDatabaseNames(ctx, bson.M{})
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(databases)
-	collection := cli.Database(DB_NAME).Collection("users")
-
-	// select one record
-	var result User
-	filter := bson.D{{"email", "Valerie_Gavin9167@nimogy.biz"}}
-	err = collection.FindOne(context.TODO(), filter).Decode(&result)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("Found a single document: %+v\n", result)
-
-	//multiple documents
-	findOptions := options.Find()
-	findOptions.SetLimit(2)
-	var results []*User
-	cur, err := collection.Find(context.TODO(), bson.D{{}}, findOptions)
-	if err != nil {
-		log.Fatal(err)
-	}
-	for cur.Next(context.TODO()) {
-		var elem User
-		err := cur.Decode(&elem)
-		if err != nil {
-			log.Fatal(err)
-		}
-		results = append(results, &elem)
-	}
-	if err := cur.Err(); err != nil {
-		log.Fatal(err)
-	}
-	cur.Close(context.TODO())
-	fmt.Printf("Found multiple documents (array of pointers): %+v\n", results)
-
-	// print pagination data
-	var limit int64 = 10
-	var page int64 = 1
-	collections := cli.Database(DB_NAME).Collection("users")
-
-	filtr := bson.M{}
-	projection := bson.D{
-    		{"email", 1},
-    		{"lastname", 1},
-    		{"country", 1},
-    		{"city", 1},
-    	}
-	paginatedData, err := monpagin.New(collections).Limit(limit).Page(page).Select(projection).Filter(filtr).Sort("country" , 1).Find()
-	if err != nil {
-		panic(err)
-	}
-	var lists []User
-	for _, raw := range paginatedData.Data {
-		var user *User
-		if marshallErr := bson.Unmarshal(raw, &user); marshallErr == nil {
-			lists = append(lists, *user)
-		}
-	}
-	fmt.Printf("Norm Find Data: %+v\n", lists)
-	fmt.Printf("Normal find pagination info: %+v\n", paginatedData.Pagination)
-
-
-
+	cli, _ := InitDB()
 
 	if gin.Mode() == gin.ReleaseMode {
 		gin.DisableConsoleColor()
@@ -227,17 +172,51 @@ func main() {
 	user := api_v1.Group("/user")
 	user.GET("/listing", func(c *gin.Context) {
 		pagenum := c.DefaultQuery("pagenum", "0")
-		c.String(200, `/listing with page=`+pagenum+` OK!`)
+		// print pagination data
+		var limit int64 = 10
+		var page int64
+		collections := cli.Database(DB_NAME).Collection("users")
+		filtr := bson.M{}
+		projection := bson.D{
+			{"_id", 1},
+			{"last_name", 1},
+			{"email", 1},
+			{"country", 1},
+			{"city", 1},
+		}
+		page, err := strconv.ParseInt(pagenum, 10, 64)
+		if err != nil {
+			panic(err)
+		}
+		paginatedData, err := monpagin.New(collections).Limit(limit).Page(page).Select(projection).Filter(filtr).Sort("country", 1).Find()
+		if err != nil {
+			panic(err)
+		}
+		var lists []User
+		for _, raw := range paginatedData.Data {
+			var user *User
+			if marshallErr := bson.Unmarshal(raw, &user); marshallErr == nil {
+				lists = append(lists, *user)
+			}
+		}
+		// fmt.Printf("Norm Find Data: %+v\n", lists)
+		// fmt.Printf("Normal find pagination info: %+v\n", paginatedData.Pagination)
+		c.JSON(http.StatusOK, gin.H{
+			"context":    "restful",
+			"data":       lists,
+			"pagination": paginatedData.Pagination,
+			"errors":     "",
+		})
 	})
 	user.GET("/profile/:user_id", func(c *gin.Context) {
 		user_id := c.Param("user_id")
-		c.String(200, `/profile for`+user_id+` OK!`)
+		c.JSON(http.StatusOK, gin.H{"status": `/profile for` + user_id + ` OK!`})
 	})
 	user.GET("/stats/:user_id", func(c *gin.Context) {
 		user_id := c.Param("user_id")
 		pagenum := c.DefaultQuery("pagenum", "0")
 		groupingtype := c.DefaultQuery("groupingtype", "by_day") //and by_game
-		c.String(200, `stats by `+groupingtype+` for `+user_id+pagenum+` OK!`)
+		c.JSON(http.StatusOK, gin.H{"status": `stats by ` + groupingtype + ` for ` + user_id + pagenum + ` OK!`})
 	})
 
 	//Predefined for errors requests
