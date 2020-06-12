@@ -52,10 +52,13 @@ type (
 		Gender     string             `json:"gender" bson:"gender"`
 		Birth_date string             `json:"birth_data" bson:"birth_data"`
 	}
-	// Current info about state of compute process
-	// Pagination part
-	// Return data of any values
-	//faces errors
+	UserGames struct {
+		ID          primitive.ObjectID `bson:"_id,omitempty"`
+		Points_gained string           `bson:"points_gained,omitempty"`
+		Win_status    string           `bson:"win_status,omitempty"`
+		Game_type     string           `bson:"game_type,omitempty"`
+		Created       string           `bson:"created,omitempty"`
+	}
 	DataOutput struct {
 		context    AnyInterface
 		pagination AnyInterface
