@@ -6,6 +6,7 @@
   <title>API v.{{.apiver}} documentation</title>
 </head>
 <body>
+  <h3>API v.{{.apiver}} documentation</h3>
 <pre>
 {{.doc}}
 </pre>

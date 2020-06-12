@@ -8,7 +8,6 @@
 # REMOTE_PORT="xxxx"
 # REMOTE_HOST="192.168.xxx.xxx"
 . $(pwd)"/deploy.conf"
-
 ## Prepare configs directory
 
 

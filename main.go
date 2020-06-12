@@ -70,7 +70,6 @@ func init() {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
-
 	gin.SetMode(os.Getenv("GIN_MODE"))
 	CERTS_CACHE = os.Getenv("certs_cache") // should be withoud finalize dot
 	APP_FQDN = os.Getenv("app_fqdn")       // should be withoud finalize dot
@@ -86,33 +85,30 @@ func init() {
 	DB_PASSWORD = os.Getenv("db_password")
 	MONGODB_DSN = DB_TYPE + "://" + DB_HOST + ":" + DB_PORT
 }
-func InitDB() (*mongo.Client, context.Context) {
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	cli, err := mongo.Connect(ctx, options.Client().ApplyURI(MONGODB_DSN))
+func InitMongoDB() (*mongo.Client) {
+	client, err := mongo.NewClient(options.Client().ApplyURI(MONGODB_DSN))
 	if err != nil {
-		log.Fatal(err)
+	    log.Fatal(err)
 	}
-	// Check the connection
-	err = cli.Ping(context.TODO(), nil)
+	err = client.Connect(context.TODO())
 	if err != nil {
-		log.Fatal(err)
+	    log.Fatal(err)
 	}
-	return cli, ctx
+	err = client.Ping(context.TODO(), nil)
+	if err != nil {
+	    log.Fatal(err)
+	}
+	fmt.Println("Connected to MongoDB!")
+	return client
 }
 func main() {
-	cli, _ := InitDB()
-
+	cli := InitMongoDB()
+	router := gin.New()
 	if gin.Mode() == gin.ReleaseMode {
+		fmt.Println("PRODUCTION MODE: Enabled (logs, console, debug messages)")
 		gin.DisableConsoleColor()
 		f, _ := os.Create("./logs/server.log")
 		gin.DefaultWriter = io.MultiWriter(f)
-		// Sett log format:
-		fmt.Println("PRODUCTION MODE: Enabled (logs, console, debug messages)")
-	} else {
-		fmt.Println("PRODUCTION MODE: Disabled: api_user,api_password:", API_USER, API_PASSWORD)
-	}
-	router := gin.New()
-	if gin.Mode() == gin.ReleaseMode {
 		router.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
 			//custom format for logging:
 			return fmt.Sprintf("%s - [%s] %s \"%s\" %d \"%s\" %s\n",
@@ -125,6 +121,8 @@ func main() {
 				param.ErrorMessage,
 			)
 		}))
+	} else {
+		fmt.Println("PRODUCTION MODE: Disabled: api_user,api_password:", API_USER, API_PASSWORD)
 	}
 	// Define common middlewares
 	router.Use(gin.Recovery())
@@ -144,7 +142,7 @@ func main() {
 	router.Static("/public", "./public")
 
 	router.GET("/", func(c *gin.Context) {
-		c.String(200, `Please use our api by link: /api_v1`)
+		c.String(http.StatusOK, `Please use our api by link: /api_v1`)
 	})
 
 	api_v1 := router.Group("/api_v1", throttle.Policy(&throttle.Quota{
@@ -173,7 +171,7 @@ func main() {
 	user.GET("/listing", func(c *gin.Context) {
 		pagenum := c.DefaultQuery("pagenum", "0")
 		// print pagination data
-		var limit int64 = 10
+		var limit int64 = 20
 		var page int64
 		collections := cli.Database(DB_NAME).Collection("users")
 		filtr := bson.M{}
@@ -210,7 +208,30 @@ func main() {
 	})
 	user.GET("/profile/:user_id", func(c *gin.Context) {
 		user_id := c.Param("user_id")
-		c.JSON(http.StatusOK, gin.H{"status": `/profile for` + user_id + ` OK!`})
+		var status int
+		var result bson.M
+		collection := cli.Database(DB_NAME).Collection("users")
+		opts := options.FindOne().SetSort(bson.D{{"country", 1}})
+		//Should string like "5edad21beb7b9e2817e30de4"
+		documentId, err := primitive.ObjectIDFromHex(user_id)
+		filter := bson.M{"_id": documentId}  
+		err = collection.FindOne(context.TODO(), filter, opts).Decode(&result)
+		if err != nil {
+		    if err == mongo.ErrNoDocuments {
+				status = http.StatusNoContent
+				c.JSON(status, gin.H{})
+		        return
+		    }
+		    log.Fatal(err)
+		}
+		status = http.StatusOK
+		fmt.Printf("DEBUG:found document %v", result)
+		c.JSON(status, gin.H{
+			"context":    "restful,"+user_id,
+			"data":       result,
+			"pagination": "",
+			"errors":     "",
+		})
 	})
 	user.GET("/stats/:user_id", func(c *gin.Context) {
 		user_id := c.Param("user_id")

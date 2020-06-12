@@ -34,6 +34,7 @@ MongoDb.
 - golang v1.14
 - mongodb
 - registered domain name
+- https ready connection
 
 ## Deploy
 - переименовать _go.mod в go.mod
@@ -50,6 +51,7 @@ Login:      guest
 Password:   guest0k!
 
 GET /api_v1/user/listing?pagenum=2
-GET /api_v1/user/profile/123
+GET /api_v1/user/profile/5edad21deb7b9e2817e33c1d
+GET /api_v1/user/profile/5edad21deb7b9e2817e33c1---
 GET /api_v1/user/stats/123?sort=by_game&pagenum=2
 GET /api_v1/user/stats/123?&sort=by_day&pagenum=1
