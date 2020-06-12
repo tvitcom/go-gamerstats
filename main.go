@@ -2,6 +2,7 @@ package main
 
 import (
 	// "encoding/json"
+	"regexp"
 	"context"
 	"github.com/cnjack/throttle"
 	"github.com/gin-gonic/gin"
@@ -200,8 +201,8 @@ func main() {
 				lists = append(lists, *user)
 			}
 		}
-		// fmt.Printf("Norm Find Data: %+v\n", lists)
-		// fmt.Printf("Normal find pagination info: %+v\n", paginatedData.Pagination)
+		// fmt.Printf("DEBUG:Norm Find Data: %+v\n", lists)
+		// fmt.Printf("DEBUG:Normal find pagination info: %+v\n", paginatedData.Pagination)
 		c.JSON(http.StatusOK, gin.H{
 			"context":    "restful",
 			"data":       lists,
@@ -210,14 +211,21 @@ func main() {
 		})
 	})
 	user.GET("/profile/:user_id", func(c *gin.Context) {
-		user_id := c.Param("user_id")
 		var status int
 		var result bson.M
+		//Validation user_id
+		user_id := c.Param("user_id")
+		var validStr = regexp.MustCompile(`^[0-9a-f]{24}$`)
+    	if ok := validStr.MatchString(user_id);!ok {
+    		status = http.StatusBadRequest
+			c.JSON(status, gin.H{})
+			return
+    	}
+    	//get user info by user_id
 		collection := cli.Database(DB_NAME).Collection("users")
 		opts := options.FindOne().SetSort(bson.D{{"country", 1}})
-		//Should string like "5edad21beb7b9e2817e30de4"
-		documentId, err := primitive.ObjectIDFromHex(user_id)
-		filter := bson.M{"_id": documentId}  
+		userId, err := primitive.ObjectIDFromHex(user_id)
+		filter := bson.M{"_id": userId}  
 		err = collection.FindOne(context.TODO(), filter, opts).Decode(&result)
 		if err != nil {
 		    if err == mongo.ErrNoDocuments {
@@ -237,10 +245,69 @@ func main() {
 		})
 	})
 	user.GET("/stats/:user_id", func(c *gin.Context) {
+		var status int
 		user_id := c.Param("user_id")
 		pagenum := c.DefaultQuery("pagenum", "0")
 		groupingtype := c.DefaultQuery("groupingtype", "by_day") //and by_game
-		c.JSON(http.StatusOK, gin.H{"status": `stats by ` + groupingtype + ` for ` + user_id + pagenum + ` OK!`})
+		_ = groupingtype
+		//find user by id:
+		var userInfo bson.M
+		collection := cli.Database(DB_NAME).Collection("users")
+		opts := options.FindOne().SetSort(bson.D{{"country", 1}})
+		userId, err := primitive.ObjectIDFromHex(user_id)
+		filter := bson.M{"_id": userId}  
+		err = collection.FindOne(context.TODO(), filter, opts).Decode(&userInfo)
+		if err != nil {
+		    if err == mongo.ErrNoDocuments {
+				status = http.StatusNoContent
+				c.JSON(status, gin.H{})
+		        return
+		    }
+		    log.Fatal(err)
+		}
+		status = http.StatusOK
+		fmt.Printf("DEBUG:found document %v", userInfo)
+		
+		//find users statistic:
+		var limit int64 = 20
+		var page int64
+		collections := cli.Database(DB_NAME).Collection("user_games")
+		filtr := bson.M{}
+		//UserGames struct {
+		// ID          primitive.ObjectID `bson:"_id,omitempty"`
+		// Points_gained string           `bson:"points_gained,omitempty"`
+		// Win_status    string           `bson:"win_status,omitempty"`
+		// Game_type     string           `bson:"game_type,omitempty"`
+		// Created       string  
+		projection := bson.D{
+			{"_id", 1},
+			{"points_gained", 1},
+			{"win_status", 1},
+			{"game_type", 1},
+		}
+		page, err = strconv.ParseInt(pagenum, 10, 64)
+		if err != nil {
+			panic(err)
+		}
+		paginatedData, err := monpagin.New(collections).Limit(limit).Page(page).Select(projection).Filter(filtr).Sort("country", 1).Find()
+		if err != nil {
+			panic(err)
+		}
+		var lists []UserGames
+		for _, raw := range paginatedData.Data {
+			var userGames *UserGames
+			if marshallErr := bson.Unmarshal(raw, &userGames); marshallErr == nil {
+				lists = append(lists, *userGames)
+			}
+		}
+		fmt.Printf("DEBUG:Norm Find Data: %+v\n", lists)
+		fmt.Printf("DEBUG:Normal find pagination info: %+v\n", paginatedData.Pagination)
+		c.JSON(http.StatusOK, gin.H{
+			"context":    "restful,"+groupingtype,
+			"data":       lists,
+			"pagination": paginatedData.Pagination,
+			"errors":     "",
+		})
 	})
 
 	//Predefined for errors requests

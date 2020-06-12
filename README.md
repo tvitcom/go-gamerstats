@@ -53,5 +53,5 @@ Password:   guest0k!
 GET /api_v1/user/listing?pagenum=2
 GET /api_v1/user/profile/5edad21deb7b9e2817e33c1d
 GET /api_v1/user/profile/5edad21deb7b9e2817e33c1---
-GET /api_v1/user/stats/123?sort=by_game&pagenum=2
-GET /api_v1/user/stats/123?&sort=by_day&pagenum=1
+GET /api_v1/user/stats/5edad21deb7b9e2817e33c1d?sort=by_game&pagenum=2
+GET /api_v1/user/stats/5edad21deb7b9e2817e33c1d?&sort=by_day&pagenum=1
