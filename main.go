@@ -2,7 +2,6 @@ package main
 
 import (
 	// "encoding/json"
-	"regexp"
 	"context"
 	"github.com/cnjack/throttle"
 	"github.com/gin-gonic/gin"
@@ -13,6 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/acme/autocert"
+	"regexp"
 	// "go.mongodb.org/mongo-driver/mongo/readpref"
 	"fmt"
 	"io"
@@ -54,11 +54,11 @@ type (
 		Birth_date string             `json:"birth_data" bson:"birth_data"`
 	}
 	UserGames struct {
-		ID          primitive.ObjectID `bson:"_id,omitempty"`
-		Points_gained string           `bson:"points_gained,omitempty"`
-		Win_status    string           `bson:"win_status,omitempty"`
-		Game_type     string           `bson:"game_type,omitempty"`
-		Created       string           `bson:"created,omitempty"`
+		ID            primitive.ObjectID `bson:"_id,omitempty"`
+		Points_gained string             `bson:"points_gained,omitempty"`
+		Win_status    string             `bson:"win_status,omitempty"`
+		Game_type     string             `bson:"game_type,omitempty"`
+		Created       string             `bson:"created,omitempty"`
 	}
 	DataOutput struct {
 		context    AnyInterface
@@ -89,18 +89,18 @@ func init() {
 	DB_PASSWORD = os.Getenv("db_password")
 	MONGODB_DSN = DB_TYPE + "://" + DB_HOST + ":" + DB_PORT
 }
-func InitMongoDB() (*mongo.Client) {
+func InitMongoDB() *mongo.Client {
 	client, err := mongo.NewClient(options.Client().ApplyURI(MONGODB_DSN))
 	if err != nil {
-	    log.Fatal(err)
+		log.Fatal(err)
 	}
 	err = client.Connect(context.TODO())
 	if err != nil {
-	    log.Fatal(err)
+		log.Fatal(err)
 	}
 	err = client.Ping(context.TODO(), nil)
 	if err != nil {
-	    log.Fatal(err)
+		log.Fatal(err)
 	}
 	fmt.Println("Connected to MongoDB!")
 	return client
@@ -173,7 +173,15 @@ func main() {
 	// User part APIv1
 	user := api_v1.Group("/user")
 	user.GET("/listing", func(c *gin.Context) {
+		var status int
 		pagenum := c.DefaultQuery("pagenum", "0")
+		//validation http keys
+		var validStr = regexp.MustCompile(`^[0-9]{1,5}$`)
+		if ok := validStr.MatchString(pagenum); !ok {
+			status = http.StatusBadRequest
+			c.JSON(status, gin.H{})
+			return
+		}
 		// print pagination data
 		var limit int64 = 20
 		var page int64
@@ -216,29 +224,29 @@ func main() {
 		//Validation user_id
 		user_id := c.Param("user_id")
 		var validStr = regexp.MustCompile(`^[0-9a-f]{24}$`)
-    	if ok := validStr.MatchString(user_id);!ok {
-    		status = http.StatusBadRequest
+		if ok := validStr.MatchString(user_id); !ok {
+			status = http.StatusBadRequest
 			c.JSON(status, gin.H{})
 			return
-    	}
-    	//get user info by user_id
+		}
+		//get user info by user_id
 		collection := cli.Database(DB_NAME).Collection("users")
 		opts := options.FindOne().SetSort(bson.D{{"country", 1}})
 		userId, err := primitive.ObjectIDFromHex(user_id)
-		filter := bson.M{"_id": userId}  
+		filter := bson.M{"_id": userId}
 		err = collection.FindOne(context.TODO(), filter, opts).Decode(&result)
 		if err != nil {
-		    if err == mongo.ErrNoDocuments {
+			if err == mongo.ErrNoDocuments {
 				status = http.StatusNoContent
 				c.JSON(status, gin.H{})
-		        return
-		    }
-		    log.Fatal(err)
+				return
+			}
+			log.Fatal(err)
 		}
 		status = http.StatusOK
 		fmt.Printf("DEBUG:found document %v", result)
 		c.JSON(status, gin.H{
-			"context":    "restful,"+user_id,
+			"context":    "restful," + user_id,
 			"data":       result,
 			"pagination": "",
 			"errors":     "",
@@ -255,19 +263,19 @@ func main() {
 		collection := cli.Database(DB_NAME).Collection("users")
 		opts := options.FindOne().SetSort(bson.D{{"country", 1}})
 		userId, err := primitive.ObjectIDFromHex(user_id)
-		filter := bson.M{"_id": userId}  
+		filter := bson.M{"_id": userId}
 		err = collection.FindOne(context.TODO(), filter, opts).Decode(&userInfo)
 		if err != nil {
-		    if err == mongo.ErrNoDocuments {
+			if err == mongo.ErrNoDocuments {
 				status = http.StatusNoContent
 				c.JSON(status, gin.H{})
-		        return
-		    }
-		    log.Fatal(err)
+				return
+			}
+			log.Fatal(err)
 		}
 		status = http.StatusOK
 		fmt.Printf("DEBUG:found document %v", userInfo)
-		
+
 		//find users statistic:
 		var limit int64 = 20
 		var page int64
@@ -278,7 +286,7 @@ func main() {
 		// Points_gained string           `bson:"points_gained,omitempty"`
 		// Win_status    string           `bson:"win_status,omitempty"`
 		// Game_type     string           `bson:"game_type,omitempty"`
-		// Created       string  
+		// Created       string
 		projection := bson.D{
 			{"_id", 1},
 			{"points_gained", 1},
@@ -303,7 +311,7 @@ func main() {
 		fmt.Printf("DEBUG:Norm Find Data: %+v\n", lists)
 		fmt.Printf("DEBUG:Normal find pagination info: %+v\n", paginatedData.Pagination)
 		c.JSON(http.StatusOK, gin.H{
-			"context":    "restful,"+groupingtype,
+			"context":    "restful," + groupingtype,
 			"data":       lists,
 			"pagination": paginatedData.Pagination,
 			"errors":     "",
