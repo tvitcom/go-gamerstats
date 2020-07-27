@@ -327,7 +327,6 @@ func main() {
 	})
 
 	// Listen and serve:
-	// Listen and serve:
 	if gin.Mode() == gin.ReleaseMode {
 		go func() {
 			if err := http.ListenAndServe(APP_ENTRYPOINT, http.HandlerFunc(redirectHTTPS)); err != nil {
