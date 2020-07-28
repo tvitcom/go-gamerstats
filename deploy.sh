@@ -13,8 +13,9 @@
 
 rsync -e "ssh -p $REMOTE_PORT" \
 	--exclude=".gitignore" \
-	--exclude="certs-cache" \
-	--exclude="uploaded" \
+	--exclude="certs-cache/*" \
+	--exclude="uploaded/*" \
+	--exclude="info/*"  \
 	--exclude=".env*"	\
 	--exclude="logs/" \
 	--exclude="go.sum" \
